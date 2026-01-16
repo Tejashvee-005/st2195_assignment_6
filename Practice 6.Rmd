@@ -15,8 +15,8 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r}
-```
+
+
 
 ## Including Plots
 
@@ -132,8 +132,9 @@ stop_words <- stopwords::stopwords()
 
 ```{r}
 install.packages("text2vec")
+library(tokenizers) # Must call this library for the code to run without errors
 get_word_freq<- function(contents, stop_words, num_words) {
-  words <- unlist(lapply(contents, tokenise_words))
+  words <- unlist(lapply(contents, tokenize_words))
   # turn a paragraph to a vector of words
   words <- tolower(words)
   # turn all words to lowercase
@@ -154,11 +155,6 @@ bad_news_contents <- df$contents[df$bad_news==1]  # contents related to 143 (163
 ```
 
 Use the function above to get the 20 most common words associated with 'good_news' and 'bad_news':
-```{r}
-
-
-```
-
 
 ```{r}
 good_indicators<-get_word_freq(good_news_contents, stop_words, num_words = 20)
