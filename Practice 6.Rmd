@@ -1,0 +1,188 @@
+---
+title: 'Practice 6'
+author: "Tejashvee"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+setwd("/Users/krishnakumartejashvee/Downloads/SIM /Y2/2195/workshops/Practice Assignment 6")
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+# 1. Load and merge the dataset
+```{r}
+install.packages("dplyr")
+library(dplyr)    # using "dplyr" package to manipulate the data frames
+```
+Loading "speeches.csv" into data frame.
+```{r}
+speeches <- read.csv("speeches.csv", header=TRUE, sep='|')    # the separator is '|'
+# check the values in R Environment, there are 1345 (1504) records and 5 variables 
+#speeches
+```
+Check for unique records
+```{r}
+length(unique(speeches$date))   # unique records based on date are 1051 (1174)
+```
+We want to keep only the "date" and "contents" columns.
+```{r}
+speeches <- speeches[!is.na(speeches$contents),c('date', 'contents')] 
+#speeches
+# check the values in R Environment, there are 1345 records and 2 variables (1504)
+```
+
+For the same day, there can be a few speeches. Total 1345 records with 1051 (1174) unique dates. In order to merge correctly with the exchange rate data, we put all the contents together.
+```{r}
+speeches<- speeches %>%
+  group_by(date)%>%  #group the speeches by unique data
+  summarise(contents=paste(contents,  collapse=""))  # collapse to join rows with " "
+# check the values in R environment, there are 1052 (1174) records and 2 variables
+```
+
+Loading "fx.csv" into data frame.
+```{r}
+fx<- read.csv("fx.csv", header=TRUE, check.names=FALSE)
+colnames(fx)<-c("date", "time_period","exchange_rate")
+fx<-fx[c('date','exchange_rate')] #command runs only if the column name is specified as it is
+```
+
+Merging the data together
+
+```{r}
+df<- fx %>% left_join(speeches)
+```
+
+```{r}
+df$exchange_rate<- as.numeric(df$exchange_rate) # change data type to numeric
+df$date <-as.Date(df$date) # change data type to date
+```
+
+# Check the value in R environment, there are 5932 records and 3 variables
+
+## 2. Remove entries with obvious outliers or mistakes
+
+We first see if there is any obvious outlier or mistakes by plotting the data :
+```{r}
+plot(df$date, df$exchange_rate, type='l', xlab="date", ylab="EUR/USD reference exchange rate")
+```
+And look at the summary statistics:
+```{r}
+summary(df)
+```
+The data does not seem to have obvious outliers or mistakes, but there is 62 missing data (NA)
+
+## 3. Handle missing observations
+
+We use the 'na.locf()' "Last Observation Carried Forward" from 'zoo' package, for replacing each NA with the most recent non-NA prior to it.
+
+There are some "date gaps" in the data as well. For this assignment we will not handle them.
+```{r}
+library(zoo) #using "zoo" package to calculate irregular time series.
+df$exchange_rate <- na.locf(df$exchange_rate, fromLast=FALSE) # because data is in ascending order
+# Note fromLast should set to True as date is in descending order
+# Note fromLast should set to False as date is in ascending order
+summary(df)
+```
+## 4. Calculate the exchange rate return
+
+Get the return by using the formula: $R_{t}=\fra{P_{t}}
+```{r}
+df$return <-c(diff(df$exchange_rate)/df$exchange_rate[-1],NA)
+
+# add new variable "return", with "lagged differences"/"previous value"
+```
+
+Extend the original dataset with the variables "good_news" and "bad_news".
+
+```{r}
+df$good_news <-as.numeric(df$return >0.5/100) # larger than 0.5 percent, true=1
+df$bad_news <-as.numeric(df$return < -0.5/100) # smaller than -0.5 percent, true=1
+
+```
+
+## 5.Remove the entries for which contents is NA
+
+```{r}
+install.packages("tidyr")
+library(tidyr) # using  "tidyr" package to clean up data
+df<- df%>% drop_na(contents) #remove rows with NA
+# check the values in R environment, there are 974 (1085) records and 6 variables
+```
+
+## 5a/b. Generate and store "good_indicators" and "bad_indicators"
+
+Load in some stop words, which are words that used to form a sentence but does not add much meaning to a sentence. Example of stop words are "a", "the" "does", "i", etc.
+```{r}
+stop_words <- stopwords::stopwords()
+```
+
+
+```{r}
+install.packages("text2vec")
+get_word_freq<- function(contents, stop_words, num_words) {
+  words <- unlist(lapply(contents, tokenise_words))
+  # turn a paragraph to a vector of words
+  words <- tolower(words)
+  # turn all words to lowercase
+  freq <-table(words)
+  # find out the number of appearance of each word 
+  freq <- freq[!(names(freq) %in% stop_words)]
+  # remove the stop words
+  names(freq[order(-freq)])[1:num_words]
+  # sort the words from appearing most to least
+  
+}
+
+```
+Group all good new or bad new contents 
+```{r}
+good_news_contents <- df$contents[df$good_news==1] # contents related to 137(174) "good news"
+bad_news_contents <- df$contents[df$bad_news==1]  # contents related to 143 (163) "bad_news"
+```
+
+Use the function above to get the 20 most common words associated with 'good_news' and 'bad_news':
+```{r}
+
+
+```
+
+
+```{r}
+good_indicators<-get_word_freq(good_news_contents, stop_words, num_words = 20)
+
+bad_indicators <-get_word_freq(bad_news_contents, stop_words, num_words = 20)
+```
+Top words for good indicators
+```{r}
+good_indicators
+
+```
+Top words for bad indicators
+```{r}
+bad_indicators
+```
+Store the results in csv files.
+
+```{r}
+write.table(good_indicators, file="good_indicators.csv", sep=",")
+write.table(bad_indicators, file="bad_indicators.csv", sep=",")
+```
+
+Observation found: many terms appear in both indicators.
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
